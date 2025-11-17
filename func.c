@@ -443,7 +443,7 @@ void monitor_services() {
     printf("Monitoring completed.\n");
 }
 
-// Utility functions
+// Redundant code
 const char* status_to_string(ServiceStatus status) {
     switch (status) {
         case STATUS_ACTIVE: return "ACTIVE";
