@@ -13,7 +13,6 @@ void load_services_from_system() {
     FILE *fp;
     char line[1024];
     char service_name[MAX_SERVICE_NAME];
-    char status_str[64];
     char load_state[64], active_state[64], sub_state[64];
     
     printf("Loading services from system...\n");
@@ -26,8 +25,7 @@ void load_services_from_system() {
     }
     
     while (fgets(line, sizeof(line), fp) != NULL) {
-        // Parse systemctl output format more thoroughly
-        // Format: UNIT LOAD ACTIVE SUB DESCRIPTION
+        // Parse systemctl output format: UNIT LOAD ACTIVE SUB DESCRIPTION
         int parsed = sscanf(line, "%255s %63s %63s %63s", 
                            service_name, load_state, active_state, sub_state);
         
@@ -60,6 +58,37 @@ void load_services_from_system() {
     
     printf("Services loaded successfully!\n");
 }
+
+// *** NEW FUNCTION: List all processes using ps aux ***
+void list_all_processes() {
+    FILE *fp;
+    char line[1024];
+    
+    printf("\n=== All System Processes (ps aux) ===\n");
+    
+    // Use 'ps aux' for a detailed list of all running processes
+    // --no-headers removes the redundant header if the user wants to pipe this
+    fp = popen("ps aux --no-headers", "r"); 
+    if (fp == NULL) {
+        perror("Failed to execute ps aux");
+        return;
+    }
+    
+    // Print header for ps aux output
+    printf("%-8s %-6s %-4s %-4s %-8s %-8s %-15s %-20s\n", 
+           "USER", "PID", "%CPU", "%MEM", "VSZ", "RSS", "STAT", "COMMAND");
+    printf("------------------------------------------------------------------------------------------------------------------\n");
+    
+    // Read and print the output line by line
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        printf("%s", line);
+    }
+    
+    pclose(fp);
+    printf("------------------------------------------------------------------------------------------------------------------\n");
+    printf("Process listing complete.\n");
+}
+// ******************************************************
 
 // Add service to linked list and BST
 void add_service_to_list(const char* name, ServiceStatus status, int pid) {
@@ -151,7 +180,7 @@ void add_log_entry(const char* service_name, const char* action) {
 
 // Display all services
 void display_all_services() {
-    printf("\n=== All Services ===\n");
+    printf("\n=== All Services (from internal list) ===\n");
     printf("%-40s %-12s %-8s %-20s\n", "SERVICE NAME", "STATUS", "PID", "LAST STARTED");
     printf("--------------------------------------------------------------------------------\n");
     
@@ -426,7 +455,7 @@ void monitor_services() {
     
     for (int i = 0; i < 3; i++) { // Monitor for 3 cycles
         printf("\n=== Monitor Cycle %d ===\n", i + 1);
-        printf("Time: %s\n", __TIME__);
+        printf("Time: %s\n", _TIME_);
         
         // Reload services to get current status
         load_services_from_system();
@@ -511,5 +540,57 @@ void free_memory() {
     
     // Note: BST nodes point to Service objects that are already freed above
     // so we don't need to free them separately
-    service_bst = NULL;
+    // A proper recursive free_bst function would be better in a production setting
+    service_bst = NULL; 
+}
+
+
+// *** SAMPLE MAIN FUNCTION TO DEMONSTRATE THE CHOICE ***
+int main() {
+    int choice = 0;
+
+    while (1) {
+        printf("\n============================================\n");
+        printf("           Service Monitor Utility\n");
+        printf("============================================\n");
+        printf("1. View/Manage Services (Using Data Structures)\n");
+        printf("2. View All System Processes (ps aux - Real-time)\n");
+        printf("3. Monitor Services (Automatic Refresh)\n");
+        printf("0. Exit\n");
+        printf("Enter your choice: ");
+        
+        if (scanf("%d", &choice) != 1) {
+            printf("Invalid input. Please enter a number.\n");
+            // Clear input buffer
+            while (getchar() != '\n');
+            choice = -1;
+        }
+
+        switch (choice) {
+            case 1:
+                // Option to manage Services (retains existing functionality)
+                // First, ensure service list is up to date (or load if empty)
+                if (service_list == NULL) {
+                    load_services_from_system();
+                }
+                display_all_services();
+                // You would add a submenu here for start/stop/restart/search/filter
+                break;
+            case 2:
+                // Option to view ALL processes (the new requirement)
+                list_all_processes();
+                break;
+            case 3:
+                monitor_services();
+                break;
+            case 0:
+                printf("Exiting utility. Freeing memory...\n");
+                free_memory();
+                return 0;
+            default:
+                printf("Invalid choice. Please try again.\n");
+        }
+    }
+    
+    return 0;
 }
